@@ -1,9 +1,8 @@
-node_modules/
-dist/
 .env
 .env.*
 !.env.example
 .beeper-thread-agent/
-coverage/
+beeper-thread-agent
+coverage.out
 *.log
 .DS_Store

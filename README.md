@@ -1,12 +1,12 @@
 # Beeper Thread Agent
 
-A small, steerable local agent that watches one Beeper thread, asks an OpenRouter model what to say, and optionally sends the reply through Beeper Desktop's MCP server.
+A small Go program that watches one Beeper thread, asks an OpenRouter model what to say, and optionally sends the reply through Beeper Desktop's MCP server.
 
 It is deliberately **dry-run by default**. Add `--send` only when you want model replies to go out automatically.
 
 ## What it does
 
-- Connects to the local [Beeper Desktop MCP server](https://developers.beeper.com/desktop-api/mcp/) using OAuth in your browser (or an optional bearer token).
+- Connects to the local [Beeper Desktop MCP server](https://developers.beeper.com/desktop-api/mcp/) using browser OAuth or an optional bearer token.
 - Lets you search for and choose a chat, or accept a known `chatID` on the command line.
 - Starts at the newest message by default, so it never answers an old backlog accidentally.
 - Polls every two seconds, ignores your own outbound messages, deduplicates incoming messages, and checkpoints progress on disk.
@@ -14,11 +14,11 @@ It is deliberately **dry-run by default**. Add `--send` only when you want model
 - Keeps stdin open: type a sentence at any time to steer the next response.
 - Supports `/pause`, `/resume`, `/status`, and `/stop`, and backs off after transient errors.
 
-This is a hobby script, not a hosted service. Keep Beeper Desktop and this terminal session running.
+This is a local hobby tool, not a hosted service. Keep Beeper Desktop and the terminal session running.
 
 ## Requirements
 
-- Node.js 20 or later
+- Go 1.24 or later
 - Beeper Desktop running, with its local Desktop API enabled
 - An [OpenRouter](https://openrouter.ai/docs/quickstart) API key
 
@@ -27,7 +27,6 @@ This is a hobby script, not a hosted service. Keep Beeper Desktop and this termi
 ```sh
 git clone <repository-url>
 cd beeper-thread-agent
-npm install
 cp .env.example .env
 ```
 
@@ -37,17 +36,17 @@ Put your OpenRouter key in `.env`:
 OPENROUTER_API_KEY=your_key_here
 ```
 
-The first live run opens Beeper's authorization page in your browser. OAuth tokens and per-chat checkpoints are kept in `.beeper-thread-agent/state.json`, which is gitignored. If your Beeper setup gives you a manual token instead, set `BEEPER_TOKEN` in `.env`.
+The first live run opens Beeper's authorization page in your browser. OAuth tokens and per-chat checkpoints are kept in `.beeper-thread-agent/state.json`, which is gitignored and created with user-only permissions. If your Beeper setup gives you a manual token instead, set `BEEPER_TOKEN` in `.env`.
 
 ## Run it
 
 Start safely in dry-run mode:
 
 ```sh
-npm run dev
+go run .
 ```
 
-Search for a chat at the prompt, paste the displayed `chatID`, type instructions such as:
+Search for a chat at the prompt, paste the displayed `chatID`, type instructions, and start:
 
 ```text
 Help troubleshoot this issue. Give one simple test at a time and wait for the result.
@@ -63,22 +62,29 @@ Ask for a screenshot this time, and keep it to one sentence.
 When the drafts look right, restart in send mode:
 
 ```sh
-npm run dev -- --send
+go run . --send
 ```
 
 You can skip chat search when you already know the ID:
 
 ```sh
-npm run dev -- --chat 'your-chat-id' --send
+go run . --chat 'your-chat-id' --send
 ```
 
 To deliberately begin after a particular message rather than at the latest one:
 
 ```sh
-npm run dev -- --chat 'your-chat-id' --since 'message-id'
+go run . --chat 'your-chat-id' --since 'message-id'
 ```
 
 Or pass the ID to `/start message-id` during the session.
+
+For a reusable binary:
+
+```sh
+go build -o beeper-thread-agent .
+./beeper-thread-agent --chat 'your-chat-id'
+```
 
 ## Commands
 
@@ -98,7 +104,7 @@ Or pass the ID to `/start message-id` during the session.
 
 See `.env.example`. Command-line `--model` and `--poll` override their environment counterparts.
 
-The default model is `anthropic/claude-sonnet-4.5`; choose any OpenRouter model that supports the message content you expect. Images are omitted when the cached file is unavailable, too large, or the configured model cannot use them. The prompt still receives their filename/type metadata.
+The default model is `anthropic/claude-sonnet-4.5`; choose any OpenRouter model that supports the message content you expect. Images are omitted when the cached file is unavailable, too large, or the configured model cannot use them. The prompt still receives their filename and type metadata.
 
 ## Safety and limitations
 
@@ -112,10 +118,11 @@ The default model is `anthropic/claude-sonnet-4.5`; choose any OpenRouter model 
 ## Development
 
 ```sh
-npm test
-npm run typecheck
-npm run build
-npm run dev -- --smoke
+go test ./...
+go test -race ./...
+go vet ./...
+go build ./...
+go run . --smoke
 ```
 
 The smoke command makes no network calls and sends nothing.
